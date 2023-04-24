@@ -1,7 +1,12 @@
-import Stylis from 'stylis'
-import stylisRuleSheet from 'stylis-rule-sheet'
-
-const stylis = new Stylis()
+import {
+  compile,
+  serialize,
+  stringify,
+  middleware,
+  prefixer,
+  namespace,
+  rulesheet
+} from 'stylis'
 
 function disableNestingPlugin(...args) {
   let [context, , , parent = [], line, column] = args
@@ -71,16 +76,8 @@ function sourceMapsPlugin(...args) {
  */
 let splitRules = []
 
-const splitRulesPlugin = stylisRuleSheet(rule => {
+const splitRulesPlugin = rulesheet(rule => {
   splitRules.push(rule)
-})
-
-stylis.use(disableNestingPlugin)
-stylis.use(sourceMapsPlugin)
-stylis.use(splitRulesPlugin)
-stylis.set({
-  cascade: false,
-  compress: true
 })
 
 /**
@@ -97,14 +94,13 @@ function transform(hash, styles, settings = {}) {
   filename = settings.filename
   splitRules = []
 
-  stylis.set({
-    prefix:
-      typeof settings.vendorPrefixes === 'boolean'
-        ? settings.vendorPrefixes
-        : true
-  })
+  const plugins = [disableNestingPlugin, sourceMapsPlugin]
+  if (typeof settings.vendorPrefixes !== 'boolean' || settings.vendorPrefixes) {
+    plugins.push(prefixer)
+  }
+  plugins.push(namespace, stringify, splitRulesPlugin)
 
-  stylis(hash, styles)
+  serialize(compile(`${hash}{${styles}}`), middleware(plugins))
 
   if (settings.splitRules) {
     return splitRules
